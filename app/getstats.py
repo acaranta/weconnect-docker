@@ -18,14 +18,16 @@ redisserver = "localhost:6379"
 if os.getenv('REDIS_SRV') != None:
       redisserver = os.getenv('REDIS_SRV')
 
+VWUSER=''
 if os.getenv('VWUSER') != None:
       VWUSER = os.getenv('VWUSER')
+VWPASS = ''
 if os.getenv('VWPASS') != None:
-      VMPASS = os.getenv('VWPASS')
+      VWPASS = os.getenv('VWPASS')
 
 COUNTRY_LANG = 'fr_FR'
 if os.getenv('COUNTRY_LANG') != None:
-      VMPASS = os.getenv('COUNTRY_LANG')
+      COUNTRY_LANG = os.getenv('COUNTRY_LANG')
 
 
 vwc = WeConnect(COUNTRY_LANG)
