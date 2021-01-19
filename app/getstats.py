@@ -91,6 +91,10 @@ async def main():
 def send_status(redis, topic, message):
     return redis.rpush(topic, json.dumps(message))
 
+sessionFile = "/app/weconnect.session"
+if os.path.exists(sessionFile):
+    print(" Removing Stale Session File : "+sessionFile)
+    os.remove(sessionFile)
 print(str(datetime.now()) + " Logging in WeConnect ...")
 vwc.login(VWUSER,VWPASS)
 print(str(datetime.now()) + " -- Starting Work Loop ...")
