@@ -6,6 +6,7 @@ import yaml
 import glob
 import sys
 import os
+import time
 
 from pprint import pprint
 from datetime import datetime
@@ -101,7 +102,7 @@ try :
     vwc.login(VWUSER,VWPASS)
 except Exception as e:
     print(str(e))
-    print("Waiting "+waitTimeOnError+" seconds ...")
+    print("Waiting "+str(waitTimeOnError)+" seconds ...")
     time.sleep(waitTimeOnError)
 print(str(datetime.now()) + " -- Starting Work Loop ...")
 loop = asyncio.get_event_loop()
