@@ -104,6 +104,7 @@ except Exception as e:
     print(str(e))
     print("Waiting "+str(waitTimeOnError)+" seconds ...")
     time.sleep(waitTimeOnError)
+    sys.exit(2)
 print(str(datetime.now()) + " -- Starting Work Loop ...")
 loop = asyncio.get_event_loop()
 loop.run_until_complete(main())
