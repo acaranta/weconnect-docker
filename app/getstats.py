@@ -14,6 +14,7 @@ from pprint import pprint
 from WebAPI import WeConnect
 
 #### OPTS ####
+waitTimeOnError=240
 redisserver = "localhost:6379"
 if os.getenv('REDIS_SRV') != None:
       redisserver = os.getenv('REDIS_SRV')
@@ -95,8 +96,13 @@ sessionFile = "/app/weconnect.session"
 if os.path.exists(sessionFile):
     print(" Removing Stale Session File : "+sessionFile)
     os.remove(sessionFile)
-print(str(datetime.now()) + " Logging in WeConnect ...")
-vwc.login(VWUSER,VWPASS)
+try :
+    print(str(datetime.now()) + " Logging in WeConnect ...")
+    vwc.login(VWUSER,VWPASS)
+except Exception as e:
+    print(str(e))
+    print("Waiting "+waitTimeOnError+" seconds ...")
+    time.sleep(waitTimeOnError)
 print(str(datetime.now()) + " -- Starting Work Loop ...")
 loop = asyncio.get_event_loop()
 loop.run_until_complete(main())
