@@ -4,7 +4,7 @@ ENV REDIS_SRV localhost
 ENV YAML_PATH /appdata
 
 
-RUN apt update -qq && apt install -y python3-pip git && pip3 install asyncio aioredis requests bs4 volkswagencarnet
+RUN apt update -qq && apt install -y python3-pip python3-yaml git && pip3 install asyncio aioredis requests bs4 volkswagencarnet
 ADD app/* /app/
 WORKDIR /app
 
