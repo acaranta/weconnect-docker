@@ -108,6 +108,12 @@ async def forceRefresh():
                 # Print vehicles
                 for vehicle in connection.vehicles:
                     await connection.setRefresh(vehicle.vin)
+                    res[vehicle.vin] = {}
+                    res[vehicle.vin]['vin'] = vehicle.vin
+                    res[vehicle.vin]['nickname'] = vehicle.nickname
+                    res[vehicle.vin]['model'] = vehicle.model
+                    res[vehicle.vin]['model_year'] = vehicle.model_year
+                    res[vehicle.vin]['datetime'] = str(datetime.now())
                     res[vehicle.vin]['action'] = 'RefreshResponse'
 
             return res
@@ -132,7 +138,6 @@ async def getstats():
                     res[vehicle.vin]['model_year'] = vehicle.model_year
                     res[vehicle.vin]['model_image'] = vehicle.model_image
                     res[vehicle.vin]['datetime'] = str(datetime.now())
-                    vehicle.setRefresh
 #                    res[vehicle.vin]['trip_stats'] = vehicle.attrs.get('tripstatistics', {})
 
                 # get all instruments
