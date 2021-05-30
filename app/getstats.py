@@ -108,7 +108,9 @@ async def forceRefresh():
                 # Print vehicles
                 for vehicle in connection.vehicles:
                     await connection.setRefresh(vehicle.vin)
-            return True
+                    res[vehicle.vin]['action'] = 'RefreshResponse'
+
+            return res
 
 
 async def getstats():
