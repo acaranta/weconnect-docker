@@ -12,7 +12,14 @@ from pprint import pprint
 from datetime import datetime
 from pprint import pprint
 
-from WebAPI import WeConnect
+import logging
+from vw_utilities import read_config, json_loads
+from vw_vehicle import Vehicle
+import vw_connection
+
+from aiohttp import ClientSession
+
+logging.basicConfig(level=logging.ERROR)
 
 #### OPTS ####
 waitTimeOnError=240
@@ -32,7 +39,111 @@ if os.getenv('COUNTRY_LANG') != None:
       COUNTRY_LANG = os.getenv('COUNTRY_LANG')
 
 
-vwc = WeConnect(COUNTRY_LANG)
+
+
+COMPONENTS = {
+    'sensor': 'sensor',
+    'binary_sensor': 'binary_sensor',
+    'lock': 'lock',
+    'device_tracker': 'device_tracker',
+    'switch': 'switch',
+    'climate': 'climate'
+}
+
+RESOURCES = [
+    'nickname',
+    'model',
+    'model_image',
+    'position',
+    'distance',
+    'electric_climatisation',
+    'combustion_climatisation',
+    'window_heater',
+    'combustion_engine_heating',
+    'charging',
+    'adblue_level',
+    'battery_level',
+    'fuel_level',
+    'service_inspection',
+    'oil_inspection',
+    'last_connected',
+    'charging_time_left',
+    'electric_range',
+    'combustion_range',
+    'combined_range',
+    'charge_max_ampere',
+    'climatisation_target_temperature',
+    'external_power',
+    'parking_light',
+    'climatisation_without_external_power',
+    'door_locked',
+    'trunk_locked',
+    'request_in_progress',
+    'windows_closed',
+    'sunroof_closed',
+    'trip_last_average_speed',
+    'trip_last_average_electric_consumption',
+    'trip_last_average_auxillary_consumption',
+    'trip_last_average_fuel_consumption',
+    'trip_last_duration',
+    'trip_last_length',
+    'outside_temperature'
+]
+
+def is_enabled(attr):
+    """Return true if the user has enabled the resource."""
+    return attr in RESOURCES
+
+async def getstats():
+    """Main method."""
+    async with ClientSession(headers={'Connection': 'keep-alive'}) as session:
+        connection = vw_connection.Connection(session, VWUSER, VWPASS, country=COUNTRY_LANG)
+        if await connection.doLogin():
+            if await connection.update():
+                res = {}
+                # Print overall state
+                # pprint(connection._state)
+
+                # Print vehicles
+                for vehicle in connection.vehicles:
+                    res[vehicle.vin] = {}
+                    res[vehicle.vin]['vin'] = vehicle.vin
+                    res[vehicle.vin]['nickname'] = vehicle.nickname
+                    res[vehicle.vin]['model'] = vehicle.model
+                    res[vehicle.vin]['model_year'] = vehicle.model_year
+                    res[vehicle.vin]['model_image'] = vehicle.model_image
+                    res[vehicle.vin]['datetime'] = str(datetime.now())
+#                    res[vehicle.vin]['trip_stats'] = vehicle.attrs.get('tripstatistics', {})
+
+                # get all instruments
+                instruments = set()
+                for vehicle in connection.vehicles:
+                    dashboard = vehicle.dashboard(mutable=True)
+
+                    for instrument in (
+                            instrument
+                            for instrument in dashboard.instruments
+                            if instrument.component in COMPONENTS):
+                            #and is_enabled(instrument.slug_attr)):
+
+                        instruments.add(instrument)
+
+                # Output all supported instruments
+                for instrument in instruments:
+                    # print(f'name: {instrument.full_name}')
+                    # print(f'str_state: {instrument.str_state}')
+                    # print(f'state: {instrument.state}')
+                    # print(f'supported: {instrument.is_supported}')
+                    # print(f'attr: {instrument.attr}')
+                    # print(f'attributes: {instrument.attributes}')
+                    if instrument.attr == "position":
+                        res[vehicle.vin]['latitude'] = instrument.state[0]
+                        res[vehicle.vin]['longitude'] = instrument.state[1]
+                    else:
+                        res[vehicle.vin][instrument.attr] = instrument.state
+                res[vehicle.vin]['action'] = 'VWStats'
+                return res
+
 
 async def main():
     # Get messages from REDIS queue
@@ -48,63 +159,18 @@ async def main():
             print(callwhen + " Received call")
             print("--------------------------------------------------")
             results = {}
-            try:
-                vehicles = vwc.search_vehicles()
-                if (vehicles and len(vehicles) > 0) and retrycpt >0:
-                    print('Trying to get stats ({} tries left)'.format(retrycpt))
-                    print('Found {} vehicles'.format(len(vehicles)))
-                    vin = vehicles[0]['vin']
-                    #results['tech'] = vwc.load_car_details(vin)
-                    results['details'] = vwc.get_vehicle_details(vin)
-                    #results['latest_report'] = vwc.get_latest_report()[0]
-                    results['latest_trip_stat'] = vwc.get_latest_trip_statistics()
-                    results['last_refuel_trip_stat'] = vwc.get_last_refuel_trip_statistics()
-                    #results['vsr'] = vwc.get_vsr()
-                    #results['psp_status'] = vwc.get_psp_status()
-                    results['location'] = vwc.get_location()
-                    results['emanager'] = vwc.get_emanager()
-                    #results['get_shutdown'] = vwc.get_shutdown()
+            res = await asyncio.gather(getstats())
+            results = res[0]
+#            pprint(results)
+            print(str(datetime.now()) + " Done, returning stats")
+            send_status(redis, 'vwstats', results)
 
-                    results['action'] = 'VWStats'
-                    results['datetime'] = callwhen
-                print(str(datetime.now()) + " Done, returning stats")
-                send_status(redis, 'vwstats', results)
-            except Exception as e:
-                retrycpt -= 1
-                if retrycpt >0:
-                    errormsg = "Error, Retrying " + str(retrycpt) + " times left ... " + str(e)
-                    print(str(datetime.now()) + " Logout/Login to WeConnect ...")
-                    try:
-                        vwc.logout()
-                        vwc.login(VWUSER,VWPASS)
-                    except Exception as ee:
-                        pass
-                    results['error'] = errormsg
-                    print(errormsg)
-                    results['retry'] = retrycpt
-                    results['action'] = 'getStats'
-                    send_status(redis, 'vwstats-req', results)
-                else:
-                    print("Too Many retries, stopping ...")
-                    sys.exit(1)
 
             print("\n##################################################")
 
 def send_status(redis, topic, message):
     return redis.rpush(topic, json.dumps(message))
 
-sessionFile = "/app/weconnect.session"
-if os.path.exists(sessionFile):
-    print(" Removing Stale Session File : "+sessionFile)
-    os.remove(sessionFile)
-try :
-    print(str(datetime.now()) + " Logging in WeConnect ...")
-    vwc.login(VWUSER,VWPASS)
-except Exception as e:
-    print(str(e))
-    print("Waiting "+str(waitTimeOnError)+" seconds ...")
-    time.sleep(waitTimeOnError)
-    sys.exit(2)
 print(str(datetime.now()) + " -- Starting Work Loop ...")
 loop = asyncio.get_event_loop()
 loop.run_until_complete(main())
