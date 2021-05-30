@@ -146,7 +146,7 @@ async def main():
             try:
                 vwloop = asyncio.get_event_loop()
                 # loop.run(main())
-                results = []
+                results = {}
                 results = vwloop.run_until_complete(asyncio.gather(getstats()))
                 vwloop.close()
                 results['action'] = 'VWStats'
