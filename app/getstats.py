@@ -19,7 +19,7 @@ import vw_connection
 
 from aiohttp import ClientSession
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.ERROR)
 
 #### OPTS ####
 waitTimeOnError=240
@@ -51,6 +51,9 @@ COMPONENTS = {
 }
 
 RESOURCES = [
+    'nickname',
+    'model',
+    'model_image',
     'position',
     'distance',
     'electric_climatisation',
@@ -83,7 +86,8 @@ RESOURCES = [
     'trip_last_average_auxillary_consumption',
     'trip_last_average_fuel_consumption',
     'trip_last_duration',
-    'trip_last_length'
+    'trip_last_length',
+    'outside_temperature'
 ]
 
 def is_enabled(attr):
@@ -93,15 +97,23 @@ def is_enabled(attr):
 async def getstats():
     """Main method."""
     async with ClientSession(headers={'Connection': 'keep-alive'}) as session:
-        connection = vw_connection.Connection(session, VWUSER, VWPASS, country="fr")
+        connection = vw_connection.Connection(session, VWUSER, VWPASS, country=COUNTRY_LANG)
         if await connection.doLogin():
             if await connection.update():
+                res = {}
                 # Print overall state
                 # pprint(connection._state)
 
                 # Print vehicles
                 for vehicle in connection.vehicles:
-                    pprint(vehicle)
+                    res[vehicle.vin] = {}
+                    res[vehicle.vin]['vin'] = vehicle.vin
+                    res[vehicle.vin]['nickname'] = vehicle.nickname
+                    res[vehicle.vin]['model'] = vehicle.model
+                    res[vehicle.vin]['model_year'] = vehicle.model_year
+                    res[vehicle.vin]['model_image'] = vehicle.model_image
+                    res[vehicle.vin]['datetime'] = str(datetime.now())
+#                    res[vehicle.vin]['trip_stats'] = vehicle.attrs.get('tripstatistics', {})
 
                 # get all instruments
                 instruments = set()
@@ -111,21 +123,25 @@ async def getstats():
                     for instrument in (
                             instrument
                             for instrument in dashboard.instruments
-                            if instrument.component in COMPONENTS
-                            and is_enabled(instrument.slug_attr)):
+                            if instrument.component in COMPONENTS):
+                            #and is_enabled(instrument.slug_attr)):
 
                         instruments.add(instrument)
 
                 # Output all supported instruments
-                res = {}
                 for instrument in instruments:
-                    print(f'name: {instrument.full_name}')
-                    print(f'str_state: {instrument.str_state}')
-                    print(f'state: {instrument.state}')
-                    print(f'supported: {instrument.is_supported}')
-                    print(f'attr: {instrument.attr}')
-                    print(f'attributes: {instrument.attributes}')
-                    res[instrument.attr] = instrument.state
+                    # print(f'name: {instrument.full_name}')
+                    # print(f'str_state: {instrument.str_state}')
+                    # print(f'state: {instrument.state}')
+                    # print(f'supported: {instrument.is_supported}')
+                    # print(f'attr: {instrument.attr}')
+                    # print(f'attributes: {instrument.attributes}')
+                    if instrument.attr == "position":
+                        res[vehicle.vin]['latitude'] = instrument.state[0]
+                        res[vehicle.vin]['longitude'] = instrument.state[1]
+                    else:
+                        res[vehicle.vin][instrument.attr] = instrument.state
+                res[vehicle.vin]['action'] = 'VWStats'
                 return res
 
 
@@ -143,26 +159,12 @@ async def main():
             print(callwhen + " Received call")
             print("--------------------------------------------------")
             results = {}
-            try:
-                vwloop = asyncio.get_event_loop()
-                # loop.run(main())
-                results = {}
-                results = vwloop.run_until_complete(asyncio.gather(getstats()))
-                vwloop.close()
-                results['action'] = 'VWStats'
-                results['datetime'] = callwhen
-                print(str(datetime.now()) + " Done, returning stats")
-                send_status(redis, 'vwstats', results)
-            except Exception as e:
-                print(str(e))
-                retrycpt -= 1
-                if retrycpt >0:
-                    results['retry'] = retrycpt
-                    results['action'] = 'getStats'
-                    send_status(redis, 'vwstats-req', results)
-                else:
-                    print("Too Many retries, stopping ...")
-                    sys.exit(1)
+            res = await asyncio.gather(getstats())
+            results = res[0]
+#            pprint(results)
+            print(str(datetime.now()) + " Done, returning stats")
+            send_status(redis, 'vwstats', results)
+
 
             print("\n##################################################")
 
