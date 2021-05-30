@@ -156,15 +156,6 @@ async def main():
             except Exception as e:
                 retrycpt -= 1
                 if retrycpt >0:
-                    errormsg = "Error, Retrying " + str(retrycpt) + " times left ... " + str(e)
-                    print(str(datetime.now()) + " Logout/Login to WeConnect ...")
-                    try:
-                        vwc.logout()
-                        vwc.login(VWUSER,VWPASS)
-                    except Exception as ee:
-                        pass
-                    results['error'] = errormsg
-                    print(errormsg)
                     results['retry'] = retrycpt
                     results['action'] = 'getStats'
                     send_status(redis, 'vwstats-req', results)
@@ -177,18 +168,6 @@ async def main():
 def send_status(redis, topic, message):
     return redis.rpush(topic, json.dumps(message))
 
-sessionFile = "/app/weconnect.session"
-if os.path.exists(sessionFile):
-    print(" Removing Stale Session File : "+sessionFile)
-    os.remove(sessionFile)
-try :
-    print(str(datetime.now()) + " Logging in WeConnect ...")
-    vwc.login(VWUSER,VWPASS)
-except Exception as e:
-    print(str(e))
-    print("Waiting "+str(waitTimeOnError)+" seconds ...")
-    time.sleep(waitTimeOnError)
-    sys.exit(2)
 print(str(datetime.now()) + " -- Starting Work Loop ...")
 loop = asyncio.get_event_loop()
 loop.run_until_complete(main())
