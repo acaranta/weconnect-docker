@@ -94,6 +94,23 @@ def is_enabled(attr):
     """Return true if the user has enabled the resource."""
     return attr in RESOURCES
 
+
+async def forceRefresh():
+    """Main method."""
+    async with ClientSession(headers={'Connection': 'keep-alive'}) as session:
+        connection = vw_connection.Connection(session, VWUSER, VWPASS, country=COUNTRY_LANG)
+        if await connection.doLogin():
+            if await connection.update():
+                res = {}
+                # Print overall state
+                # pprint(connection._state)
+
+                # Print vehicles
+                for vehicle in connection.vehicles:
+                    await connection.setRefresh(vehicle.vin)
+            return True
+
+
 async def getstats():
     """Main method."""
     async with ClientSession(headers={'Connection': 'keep-alive'}) as session:
@@ -113,6 +130,7 @@ async def getstats():
                     res[vehicle.vin]['model_year'] = vehicle.model_year
                     res[vehicle.vin]['model_image'] = vehicle.model_image
                     res[vehicle.vin]['datetime'] = str(datetime.now())
+                    vehicle.setRefresh
 #                    res[vehicle.vin]['trip_stats'] = vehicle.attrs.get('tripstatistics', {})
 
                 # get all instruments
@@ -153,7 +171,7 @@ async def main():
         msg = await redis.blpop('vwstats-req')
         rediscall = json.loads(msg[1])
         if rediscall['action'] == "getStats":
-            print("\n##################################################")
+            print("\n##################Get Stats#######################")
             retrycpt = rediscall['retry']
             callwhen = str(datetime.now())
             print(callwhen + " Received call")
@@ -164,8 +182,18 @@ async def main():
 #            pprint(results)
             print(str(datetime.now()) + " Done, returning stats")
             send_status(redis, 'vwstats', results)
+            print("\n##################################################")
 
-
+        if rediscall['action'] == "forceRefresh":
+            print("\n#################Force Refresh####################")
+            callwhen = str(datetime.now())
+            print(callwhen + " Received call")
+            print("--------------------------------------------------")
+            results = {}
+            res = await asyncio.gather(forceRefresh())
+            results = res[0]
+            print(str(datetime.now()) + " Done Requesting Data Refresh")
+            send_status(redis, 'vwstats', results)
             print("\n##################################################")
 
 def send_status(redis, topic, message):
