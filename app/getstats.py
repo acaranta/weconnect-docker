@@ -154,6 +154,7 @@ async def main():
                 print(str(datetime.now()) + " Done, returning stats")
                 send_status(redis, 'vwstats', results)
             except Exception as e:
+                print(str(e))
                 retrycpt -= 1
                 if retrycpt >0:
                     results['retry'] = retrycpt
