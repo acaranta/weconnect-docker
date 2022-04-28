@@ -13,9 +13,9 @@ from datetime import datetime
 from pprint import pprint
 
 import logging
-from vw_utilities import read_config, json_loads
-from vw_vehicle import Vehicle
-import vw_connection
+#from volkswagencarnet.vw_utilities import read_config, json_loads
+from volkswagencarnet.vw_vehicle import Vehicle
+from volkswagencarnet.vw_connection import Connection
 
 from aiohttp import ClientSession
 
@@ -98,7 +98,7 @@ def is_enabled(attr):
 async def forceRefresh():
     """Main method."""
     async with ClientSession(headers={'Connection': 'keep-alive'}) as session:
-        connection = vw_connection.Connection(session, VWUSER, VWPASS, country=COUNTRY_LANG)
+        connection = Connection(session, VWUSER, VWPASS, country=COUNTRY_LANG)
         if await connection.doLogin():
             if await connection.update():
                 res = {}
@@ -122,7 +122,7 @@ async def forceRefresh():
 async def getstats():
     """Main method."""
     async with ClientSession(headers={'Connection': 'keep-alive'}) as session:
-        connection = vw_connection.Connection(session, VWUSER, VWPASS, country=COUNTRY_LANG)
+        connection = Connection(session, VWUSER, VWPASS, country=COUNTRY_LANG)
         if await connection.doLogin():
             if await connection.update():
                 res = {}
