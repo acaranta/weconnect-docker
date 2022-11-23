@@ -131,6 +131,7 @@ async def getstats():
 
                 # Print vehicles
                 for vehicle in connection.vehicles:
+                    pprint(vehicle.nickname)
                     res[vehicle.vin] = {}
                     res[vehicle.vin]['vin'] = vehicle.vin
                     res[vehicle.vin]['nickname'] = vehicle.nickname
@@ -141,8 +142,9 @@ async def getstats():
 #                    res[vehicle.vin]['trip_stats'] = vehicle.attrs.get('tripstatistics', {})
 
                 # get all instruments
-                instruments = set()
+                instruments = {}
                 for vehicle in connection.vehicles:
+                    instruments[vehicle.vin] = set()
                     dashboard = vehicle.dashboard(mutable=True)
 
                     for instrument in (
@@ -150,23 +152,17 @@ async def getstats():
                             for instrument in dashboard.instruments
                             if instrument.component in COMPONENTS):
                             #and is_enabled(instrument.slug_attr)):
-
-                        instruments.add(instrument)
+                        instruments[vehicle.vin].add(instrument)
 
                 # Output all supported instruments
-                for instrument in instruments:
-                    # print(f'name: {instrument.full_name}')
-                    # print(f'str_state: {instrument.str_state}')
-                    # print(f'state: {instrument.state}')
-                    # print(f'supported: {instrument.is_supported}')
-                    # print(f'attr: {instrument.attr}')
-                    # print(f'attributes: {instrument.attributes}')
-                    if instrument.attr == "position":
-                        res[vehicle.vin]['latitude'] = instrument.state[0]
-                        res[vehicle.vin]['longitude'] = instrument.state[1]
-                    else:
-                        res[vehicle.vin][instrument.attr] = instrument.state
-                res[vehicle.vin]['action'] = 'VWStats'
+                for vin in instruments:
+                    for instrument in instruments[vin]:
+                        if instrument.attr == "position":
+                            res[vin]['latitude'] = instrument.state[0]
+                            res[vin]['longitude'] = instrument.state[1]
+                        else:
+                            res[vin][instrument.attr] = instrument.state
+                    res[vin]['action'] = 'VWStats'
                 return res
 
 
@@ -186,6 +182,7 @@ async def main():
             results = {}
             res = await asyncio.gather(getstats())
             results = res[0]
+#            pprint(res)
 #            pprint(results)
             print(str(datetime.now()) + " Done, returning stats")
             send_status(redis, 'vwstats', results)
